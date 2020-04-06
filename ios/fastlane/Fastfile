@@ -1,0 +1,80 @@
+default_platform(:ios)
+
+identifier = CredentialsManager::AppfileConfig.try_fetch_value(:app_identifier)
+apple_id = CredentialsManager::AppfileConfig.try_fetch_value(:apple_id)
+app_name = "Guess Win"
+
+
+
+
+desc "Description of what the lane does"
+lane :custom_lane do
+
+	UI.message "app_identifier: #{app_name}"
+
+end
+
+lane :xcode_project_bundle_id do
+	update_app_identifier(
+	  xcodeproj: "Game.xcodeproj",
+	  plist_path: "Game/Info.plist", # Path to info plist file, relative to xcodeproj
+	  app_identifier: identifier # The App Identifier
+	)
+end
+
+lane :gen_cer do
+	cert
+	import_certificate(certificate_path: "#{SharedValues::CERT_FILE_PATH}")
+end
+
+lane :gen_provisioning_profile do
+	sigh
+	path = SharedValues::SIGH_PROFILE_PATH
+	# UI.message "profile path: #{path}"
+	update_project_provisioning(
+	  xcodeproj: "Game.xcodeproj",
+	  profile: "932bc928-abbc-42a4-b03f-c4605ade5a61", # optional if you use sigh
+	  target_filter: "Game", # matches name or type of a target
+	  build_configuration: "Release",
+	  # code_signing_identity: "iPhone Development" # optionally specify the codesigning identity
+	  # iOS Developer/iOS Distribution
+	)
+end
+
+lane :package do
+	gym(
+		scheme: "Game Release",
+		export_options: {
+		    method: "app-store",
+		    provisioningProfiles: { 
+		      identifier => "AppStore_#{identifier}",
+		    }
+		}
+	)
+end
+
+# ["Arabic", "Catalan", "Croatian", "Czech", "Brazilian Portuguese", "Danish", "Dutch", "English", "English_Australian", "English_CA", "English_UK", "Finnish", "French", "French_CA", "German", "Greek", "Hebrew", "Hindi", "Hungarian", "Indonesian", "Italian", "Japanese", "Korean", "Malay", "Norwegian", "Polish", "Portuguese", "Romanian", "Russian", "Simplified Chinese", "Slovak", "Spanish", "Spanish_MX", "Swedish", "Ukrainian", "Thai", "Traditional Chinese", "Turkish", "Vietnamese"]
+lane :add_app_to_app_store_connect do
+  produce(
+  	username: apple_id,
+    app_name: app_name,
+    language: 'English_UK',
+    app_version: '1.0',
+  )
+
+
+end
+
+require "spaceship"
+lane :uuu do
+	Spaceship.login(apple_id) 
+
+	UI.message Spaceship::Portal.app.all
+end
+
+lane :upload_metadata do
+	upload_to_app_store(
+	  force: true, # Set to true to skip PDF verification
+	  price_tier: 0
+	)
+end
